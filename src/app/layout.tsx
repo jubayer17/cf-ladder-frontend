@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppContextProvider } from "../context/AppContext";
+import Footer from "@/components/Footer";
+import Navbar from "@/components/navbar/Navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,6 +69,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Google AdSense Account */}
+        <meta
+          name="google-adsense-account"
+          content="ca-pub-4944066273658213"
+        />
+
         {/* Google Site Verification */}
         <meta
           name="google-site-verification"
@@ -86,8 +94,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppContextProvider> {children}</AppContextProvider>
+        <AppContextProvider>
 
+          {children}
+          <Footer />
+        </AppContextProvider>
       </body>
     </html>
   );
