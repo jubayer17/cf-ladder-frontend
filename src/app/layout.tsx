@@ -69,6 +69,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Google AdSense Script */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4944066273658213"
+          crossOrigin="anonymous"
+        />
+
         {/* Google AdSense Account */}
         <meta
           name="google-adsense-account"
