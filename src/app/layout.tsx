@@ -104,7 +104,7 @@ export default function RootLayout({
         <AppContextProvider>
 
           {children}
-          <Footer />
+
         </AppContextProvider>
       </body>
     </html>
