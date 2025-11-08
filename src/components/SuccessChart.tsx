@@ -10,7 +10,12 @@ interface SuccessChartProps {
   size?: number; // optional override for outer container (px)
 }
 
-const COLORS = ["var(--blue-bg)", "var(--red-bg)", "var(--muted)"];
+// Dynamic color setup that adapts to theme mode using CSS variables
+const COLORS = [
+  "var(--solved-color)",
+  "var(--unsolved-color)",
+  "var(--not-tried-color)",
+];
 const NAMES = ["Solved", "Attempted Unsolved", "Not Tried"];
 
 const formatNumber = (n: number) => n.toLocaleString();
@@ -55,7 +60,7 @@ const SuccessChart: React.FC<SuccessChartProps> = ({
     <div
       style={{ width: size, height: size + 40 }}
       aria-hidden
-      className="relative flex flex-col items-center"
+      className="relative flex flex-col items-center text-gray-900 dark:text-gray-100 transition-colors duration-300"
     >
       <div className="relative" style={{ width: size, height: size }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -70,13 +75,16 @@ const SuccessChart: React.FC<SuccessChartProps> = ({
               endAngle={450}
               dataKey="value"
               stroke="none"
-              isAnimationActive={true}
+              isAnimationActive
             >
               {(total === 0 ? emptyData : withPerc).map((entry, index) =>
                 total === 0 ? (
-                  <Cell key={`cell-empty`} fill="var(--muted)" />
+                  <Cell key="empty" fill="var(--muted-bg)" />
                 ) : (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
                 )
               )}
             </Pie>
@@ -87,8 +95,8 @@ const SuccessChart: React.FC<SuccessChartProps> = ({
               wrapperStyle={{
                 zIndex: 9999,
                 fontSize: "0.75rem",
-                backgroundColor: "var(--card-bg)",
-                color: "var(--foreground)",
+                backgroundColor: "var(--tooltip-bg)",
+                color: "var(--tooltip-text)",
                 borderRadius: "8px",
                 padding: "4px 8px",
                 boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
@@ -102,10 +110,10 @@ const SuccessChart: React.FC<SuccessChartProps> = ({
           className="absolute inset-0 flex flex-col items-center justify-center text-center"
           style={{ pointerEvents: "none" }}
         >
-          <div className="text-base font-semibold text-status-text-solved">
+          <div className="text-base font-semibold text-blue-600 dark:text-blue-400">
             {centerText}
           </div>
-          <div className="text-xs text-status-text-failed">Solved</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Solved</div>
         </div>
       </div>
     </div>
