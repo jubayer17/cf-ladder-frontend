@@ -3,14 +3,13 @@
 import type { NextPage } from "next";
 import React from "react";
 import Ladder from "../components/Ladder";
-import Navbar from "../components/navbar/Navbar";
 import PersonalInfo from "../components/PersonalInfo";
 import Unsolved from "../components/Unsolved";
-import { AppContextProvider, useAppContext } from "../context/AppContext";
+import { useAppContext } from "../context/AppContext";
 import { Problem } from "@/types";
 import Footer from "@/components/Footer";
 
-const HomeContent: React.FC = () => {
+const Home: NextPage = () => {
   const {
     problems,
     tagCounts,
@@ -30,13 +29,6 @@ const HomeContent: React.FC = () => {
 
   return (
     <div className="min-h-screen font-mono bg-[var(--background)] text-[var(--foreground)] transition-colors">
-      <Navbar
-        handle={handle ?? undefined}
-        onHandleSubmit={async (h: string) => await setHandleAndFetch(h)}
-        onHandleClear={() => clearUser()}
-        userLoading={loadingUser}
-      />
-
       {userInfo ? (
         <PersonalInfo
           profileImage={userInfo.titlePhoto}
@@ -68,16 +60,8 @@ const HomeContent: React.FC = () => {
           </>
         )}
       </main>
-      <Footer />
-    </div>
-  );
-};
 
-const Home: NextPage = () => {
-  return (
-    <AppContextProvider>
-      <HomeContent />
-    </AppContextProvider>
+    </div>
   );
 };
 
