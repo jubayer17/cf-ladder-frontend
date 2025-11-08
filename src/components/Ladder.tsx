@@ -21,12 +21,12 @@ const Ladder: React.FC<LadderProps> = ({
   const [userStatusMap, setUserStatusMap] = useState<Record<string, UserStatus>>({});
   const [showTags, setShowTags] = useState<boolean>(false);
 
-  // clear selectedTag when rating changes (so stale tag won't remain)
+
   useEffect(() => {
     setSelectedTag(null);
   }, [selectedRating]);
 
-  // clear selectedTag when hiding tags
+
   useEffect(() => {
     if (!showTags) {
       setSelectedTag(null);
@@ -38,7 +38,7 @@ const Ladder: React.FC<LadderProps> = ({
     [problems, selectedRating]
   );
 
-  // compute counts
+
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const p of problemsForRating) {
@@ -47,7 +47,7 @@ const Ladder: React.FC<LadderProps> = ({
     return counts;
   }, [problemsForRating]);
 
-  // sort tags by count desc, then alphabetically
+
   const sortedTags = useMemo(() => {
     const keys = Object.keys(tagCounts);
     keys.sort((a, b) => {
