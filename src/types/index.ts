@@ -9,3 +9,22 @@ export interface Problem {
     tags: string[];
     solvedCount?: number;
 }
+
+export type ContestInfo = {
+    id: number;
+    name: string;
+    phase: string;
+    category: string;
+    type?: string;
+    durationSeconds?: number;
+    startTimeSeconds?: number;
+};
+
+export type ProblemInfo = {
+    contestId?: number;
+    index?: string;
+    name?: string;
+    category?: string;
+    points?: number;
+    rating?: number;
+};

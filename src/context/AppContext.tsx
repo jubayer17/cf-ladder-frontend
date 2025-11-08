@@ -52,10 +52,21 @@ interface AppContextType {
     notTriedCount: number;
 }
 
+/* Contest type */
+interface ContestInfo {
+    id: number;
+    name: string;
+    phase: string;
+    type: string;
+    durationSeconds?: number;
+    startTimeSeconds?: number;
+}
+
 const AppContext = createContext<AppContextType | null>(null);
 
 /* constants */
 const CF_PROBLEMSET = "https://codeforces.com/api/problemset.problems";
+const CF_CONTESTS_LIST = "https://codeforces.com/api/contest.list";
 
 /* helpers */
 const normalizeIndex = (idx: any) => String(idx ?? "").toUpperCase().trim();
@@ -76,22 +87,71 @@ const computeTagCounts = (list: Problem[]) => {
 };
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
+    /* state */
+    const [contests, setContests] = useState<ContestInfo[]>([]);
+    const [loadingContests, setLoadingContests] = useState(false);
+    const [errorContests, setErrorContests] = useState<string | null>(null);
+
     const [problems, setProblems] = useState<Problem[]>([]);
     const [tagCounts, setTagCounts] = useState<Record<string, number>>({});
     const [loadingProblems, setLoadingProblems] = useState(false);
     const [errorProblems, setErrorProblems] = useState<string | null>(null);
 
-    const [handle, setHandle] = useState<string | null>(() =>
-        typeof window !== "undefined" ? localStorage.getItem("cf_user_handle_v1") : null
+    const [handle, setHandle] = useState<string | null>(
+        typeof window !== "undefined"
+            ? localStorage.getItem("cf_user_handle_v1")
+            : null
     );
 
     const [userInfo, setUserInfo] = useState<CFUserInfo | null>(null);
     const [userSolvedSet, setUserSolvedSet] = useState<Set<string>>(new Set());
-    const [attemptedUnsolvedProblems, setAttemptedUnsolvedProblems] = useState<AttemptInfo[]>([]);
+    const [attemptedUnsolvedProblems, setAttemptedUnsolvedProblems] =
+        useState<AttemptInfo[]>([]);
     const [loadingUser, setLoadingUser] = useState(false);
 
     const fetchProblemsPromiseRef = useRef<Promise<void> | null>(null);
 
+    /* ---------- Finished Contests ---------- */
+    const fetchFinishedContests = async () => {
+        setLoadingContests(true);
+        try {
+            const stored = localStorage.getItem("cf_finished_contests");
+            if (stored) {
+                setContests(JSON.parse(stored));
+                setLoadingContests(false);
+                return;
+            }
+
+            const res = await fetch(CF_CONTESTS_LIST);
+            const data = await res.json();
+            if (data.status !== "OK") throw new Error("Failed to fetch contests");
+
+            const finished: ContestInfo[] = (data.result as ContestInfo[])
+                .filter((c) => c.phase === "FINISHED")
+                .map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    phase: c.phase,
+                    type: c.type,
+                    durationSeconds: c.durationSeconds,
+                    startTimeSeconds: c.startTimeSeconds,
+                }));
+
+            setContests(finished);
+            localStorage.setItem("cf_finished_contests", JSON.stringify(finished));
+        } catch (err) {
+            console.error(err);
+            setErrorContests("Failed to fetch finished contests");
+        } finally {
+            setLoadingContests(false);
+        }
+    };
+
+    useEffect(() => {
+        if (contests.length === 0) fetchFinishedContests();
+    }, []);
+
+    /* ---------- Problems ---------- */
     const fetchProblems = async () => {
         if (problems.length > 0) return;
         if (fetchProblemsPromiseRef.current) return fetchProblemsPromiseRef.current;
@@ -99,6 +159,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const p = (async () => {
             setLoadingProblems(true);
             try {
+                const stored = localStorage.getItem("cf_all_problems");
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    setProblems(parsed);
+                    setTagCounts(computeTagCounts(parsed));
+                    return;
+                }
+
                 const res = await fetch(CF_PROBLEMSET);
                 const data = await res.json();
                 const allProblems = flattenProblemsResponse(data);
@@ -118,6 +186,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                 setProblems(mergedProblems);
                 setTagCounts(computeTagCounts(mergedProblems));
+                localStorage.setItem("cf_all_problems", JSON.stringify(mergedProblems));
             } catch (err) {
                 console.error(err);
                 setErrorProblems("Failed to fetch problems");
@@ -131,9 +200,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         fetchProblemsPromiseRef.current = null;
     };
 
+    /* ---------- User Data ---------- */
     const fetchAllSubmissions = async (h: string) => {
-        let from = 1;
-        let all: any[] = [];
+        let from = 1,
+            all: any[] = [];
         const count = 1000;
         while (true) {
             const url = `https://codeforces.com/api/user.status?handle=${h}&from=${from}&count=${count}`;
@@ -209,7 +279,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem("cf_user_handle_v1");
     };
 
-    // derived counts
+    /* ---------- Derived Counts ---------- */
     const problemKeySet = useMemo(
         () => new Set(problems.map((p) => makeKey(p.contestId, p.index))),
         [problems]
@@ -232,13 +302,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         [problemKeySet, solvedCountInProblems, attemptedCountInProblems]
     );
 
+    /* ---------- Safe Effects ---------- */
     useEffect(() => {
         if (problems.length === 0) fetchProblems();
     }, []);
 
     useEffect(() => {
         if (!handle) return;
-        if (problems.length > 0 && (userSolvedSet.size === 0 || attemptedUnsolvedProblems.length === 0))
+        if (
+            problems.length > 0 &&
+            (userSolvedSet.size === 0 || attemptedUnsolvedProblems.length === 0)
+        )
             setHandleAndFetch(handle);
     }, [handle, problems]);
 
