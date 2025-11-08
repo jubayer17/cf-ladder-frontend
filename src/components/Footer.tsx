@@ -4,7 +4,7 @@ import React from "react";
 
 const Footer: React.FC = () => {
     return (
-        <footer className="w-full bg-[var(--card-bg)] text-[var(--foreground)] py-10 px-4 transition-colors duration-300 ease-in-out">
+        <footer className="w-full font-mono bg-[var(--card-bg)] text-[var(--foreground)] py-10 px-4 transition-colors duration-300 ease-in-out">
             <div className="max-w-4xl mx-auto flex flex-col items-center gap-6 text-center">
 
                 <p className="text-base md:text-lg font-medium">
