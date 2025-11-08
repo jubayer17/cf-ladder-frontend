@@ -19,11 +19,19 @@ const Ladder: React.FC<LadderProps> = ({
   const [selectedRating, setSelectedRating] = useState<number>(800);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [userStatusMap, setUserStatusMap] = useState<Record<string, UserStatus>>({});
+  const [showTags, setShowTags] = useState<boolean>(false);
 
   // clear selectedTag when rating changes (so stale tag won't remain)
   useEffect(() => {
     setSelectedTag(null);
   }, [selectedRating]);
+
+  // clear selectedTag when hiding tags
+  useEffect(() => {
+    if (!showTags) {
+      setSelectedTag(null);
+    }
+  }, [showTags]);
 
   const problemsForRating = useMemo(
     () => problems.filter((p) => p.rating === selectedRating),
@@ -51,8 +59,10 @@ const Ladder: React.FC<LadderProps> = ({
 
   const filteredProblems = useMemo(
     () =>
-      problemsForRating.filter((p) => !selectedTag || p.tags?.includes(selectedTag)),
-    [problemsForRating, selectedTag]
+      showTags && selectedTag
+        ? problemsForRating.filter((p) => p.tags?.includes(selectedTag))
+        : problemsForRating,
+    [problemsForRating, selectedTag, showTags]
   );
 
   const handleStatusChange = (problemKey: string, status: UserStatus) => {
@@ -70,13 +80,27 @@ const Ladder: React.FC<LadderProps> = ({
         </div>
 
         <div className="w-full">
-          <TagSelector
-            tags={sortedTags}
-            tagCounts={tagCounts}
-            selectedTag={selectedTag}
-            onSelectTag={(t) => setSelectedTag(t)}
-          />
+          <button
+            onClick={() => setShowTags(!showTags)}
+            className={`px-4 ml-2 py-2 rounded-lg font-medium transition-all ${showTags
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+          >
+            {showTags ? "Hide Tags" : "Show Tags"}
+          </button>
         </div>
+
+        {showTags && (
+          <div className="w-full">
+            <TagSelector
+              tags={sortedTags}
+              tagCounts={tagCounts}
+              selectedTag={selectedTag}
+              onSelectTag={(t) => setSelectedTag(t)}
+            />
+          </div>
+        )}
       </div>
 
       <ProblemList
