@@ -151,7 +151,12 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
           />
           <div className="flex flex-col gap-1">
             <div className="flex flex-col items-left gap-2">
-              <span className="text-2xl font-semibold">
+              <a
+                href={`https://codeforces.com/profile/${handle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-2xl font-semibold hover:opacity-80 transition-opacity cursor-pointer"
+              >
                 {handleParts.map((p, i) => {
                   const isVar =
                     typeof p.color === "string" && p.color.startsWith("var(");
@@ -166,7 +171,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
                     </span>
                   );
                 })}
-              </span>
+              </a>
 
               <span
                 style={{
@@ -242,7 +247,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
+      {/* <div className="mt-4 flex items-center gap-3">
         <div
           className="progress-wrap"
           aria-hidden
@@ -258,7 +263,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
             }}
           />
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
