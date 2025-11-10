@@ -9,10 +9,13 @@ import type { ProblemInfo } from "@/components/contests/ProblemBox";
 import type { ContestInfo as CI } from "@/components/contests/ContestNameCell";
 
 /* CONFIG */
-const BACKEND_API = "https://cf-ladder-backend.vercel.app";
+// Use environment variable or fallback to localhost for development
+const BACKEND_API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 const BACKEND_CONTESTS_BY_CATEGORY = `${BACKEND_API}/api/contests/by-category`;
 const BACKEND_CONTEST_BY_ID = (id: number) => `${BACKEND_API}/api/contests/${id}`;
 const BACKEND_SYNC_CONTESTS = `${BACKEND_API}/api/contests/sync`;
+
+console.log('🔗 Backend API URL:', BACKEND_API);
 
 const CONTESTS_KEY = "cf_finished_contests_vX"; // global durable list
 const CONTESTS_KEY_TS = "cf_finished_contests_vX_ts";
