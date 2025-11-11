@@ -202,7 +202,15 @@ async function fetchWithCacheJson(url: string) {
 
 /* Force fresh fetch, bypassing cache - for update operations */
 async function fetchFreshJson(url: string) {
-    const res = await fetch(url, { cache: 'no-cache' });
+    // Use multiple cache-busting techniques
+    const res = await fetch(url, {
+        cache: 'no-cache',
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    });
     if (!res.ok) throw new Error(`Fetch ${res.status}`);
     const data = await res.json();
 
@@ -211,7 +219,9 @@ async function fetchFreshJson(url: string) {
         try {
             const cacheName = "cf-api-cache-sectioned";
             const cache = await caches.open(cacheName);
-            cache.put(url, new Response(JSON.stringify(data)));
+            // Remove timestamp parameter before caching
+            const cacheUrl = url.split('?')[0] + (url.includes('?') ? '?' + url.split('?')[1].replace(/&?_t=\d+/, '') : '');
+            cache.put(cacheUrl, new Response(JSON.stringify(data)));
         } catch { }
     }
 
@@ -342,7 +352,7 @@ export default function Page(): React.ReactElement {
                             name: String(p.name ?? ""),
                             points: p.points,
                             rating: p.rating
-                        }));
+                        })).sort((a: ProblemInfo, b: ProblemInfo) => (a.index || "").localeCompare(b.index || ""));
                         if (problems.length) {
                             try { await saveProblemsDB(cid, problems); } catch { }
                             try { localStorage.setItem(`${PROBLEM_KEY_PREFIX}${cid}`, JSON.stringify(problems)); } catch { }
@@ -379,7 +389,13 @@ export default function Page(): React.ReactElement {
 
         // Fetch from backend MongoDB database instead of Codeforces API
         try {
-            const data = await fetchWithCacheJson(BACKEND_CONTEST_BY_ID(contestId));
+            // Use fetchFreshJson if forceNetwork is true to bypass all caches
+            const fetchFn = forceNetwork ? fetchFreshJson : fetchWithCacheJson;
+            const url = forceNetwork
+                ? `${BACKEND_CONTEST_BY_ID(contestId)}?_t=${Date.now()}`
+                : BACKEND_CONTEST_BY_ID(contestId);
+
+            const data = await fetchFn(url);
             if (data?.success && data?.contest?.problems) {
                 const problems: ProblemInfo[] = data.contest.problems.map((p: any) => ({
                     contestId: Number(p.contestId),
@@ -387,7 +403,7 @@ export default function Page(): React.ReactElement {
                     name: String(p.name ?? ""),
                     points: p.points,
                     rating: p.rating
-                }));
+                })).sort((a: ProblemInfo, b: ProblemInfo) => (a.index || "").localeCompare(b.index || ""));
 
                 if (problems.length) {
                     try { await saveProblemsDB(contestId, problems); } catch { }
@@ -579,8 +595,9 @@ export default function Page(): React.ReactElement {
     const updateContests = useCallback(async () => {
         setLoadingContests(true); setErrorContests(null);
         try {
-            // Step 1: Call backend sync endpoint to fetch from Codeforces and save to MongoDB
-            console.log('🔄 Syncing contests from Codeforces to MongoDB...');
+            // Step 1: Call backend sync endpoint to fetch NEW contests from Codeforces and save to MongoDB
+            // Backend will automatically check latest contest ID and only fetch newer ones
+            console.log('🔄 Syncing NEW contests from Codeforces to MongoDB...');
             const syncResponse = await fetch(BACKEND_SYNC_CONTESTS, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -591,10 +608,31 @@ export default function Page(): React.ReactElement {
             }
 
             const syncData = await syncResponse.json();
-            console.log(`✅ Sync complete: ${syncData.contestsInserted} new, ${syncData.contestsUpdated} updated`);
+            console.log(`✅ Sync complete: ${syncData.contestsInserted} new contests added`);
 
-            // Step 2: Force fresh fetch from backend MongoDB database, bypassing cache
-            const data = await fetchFreshJson(`${BACKEND_CONTESTS_BY_CATEGORY}?limit=10000`);
+            if (syncData.contestsInserted === 0) {
+                console.log('ℹ️ Already up to date - no new contests');
+                setLoadingContests(false); // Stop loading immediately
+                setErrorContests('✅ Already up to date - no new contests found');
+                setTimeout(() => setErrorContests(null), 3000); // Clear after 3 seconds
+                return; // Don't refetch if nothing changed
+            }
+
+            // Step 2: Only clear cache if there were new contests added
+            console.log('🗑️ Clearing cache to fetch updated data...');
+            if (typeof window !== "undefined" && "caches" in window) {
+                try {
+                    const cacheName = "cf-api-cache-sectioned";
+                    await caches.delete(cacheName);
+                    console.log('✅ Cache cleared');
+                } catch (e) {
+                    console.warn('Failed to clear cache:', e);
+                }
+            }
+
+            // Step 3: Fetch updated data from MongoDB with cache busting
+            const timestamp = Date.now();
+            const data = await fetchFreshJson(`${BACKEND_CONTESTS_BY_CATEGORY}?limit=10000&_t=${timestamp}`);
             if (!data?.success) throw new Error("Backend API failed");
 
             // Map backend category names to frontend section names
@@ -651,6 +689,10 @@ export default function Page(): React.ReactElement {
             }));
 
             schedulePrefetchSection(filtered.map((c: any) => c.id));
+
+            // Show success message
+            setErrorContests(`✅ Successfully added ${syncData.contestsInserted} new contest(s)!`);
+            setTimeout(() => setErrorContests(null), 5000); // Clear after 5 seconds
         } catch (e: any) {
             console.error("Update contests failed", e);
             setErrorContests("⚠️ Failed to update contests. " + (e.message || "Try again later."));
@@ -929,6 +971,33 @@ export default function Page(): React.ReactElement {
     const refreshContest = useCallback(async (contestId: number) => {
         setPerContestLoading((m) => ({ ...m, [contestId]: true }));
         try {
+            // Clear all caches for this contest first
+            const key = `${PROBLEM_KEY_PREFIX}${contestId}`;
+
+            // Clear localStorage
+            try { localStorage.removeItem(key); } catch { }
+
+            // Clear IndexedDB
+            try {
+                const db = await openDB();
+                const tx = db.transaction(STORE_PROBLEMS, "readwrite");
+                await new Promise<void>((res, rej) => {
+                    const req = tx.objectStore(STORE_PROBLEMS).delete(String(contestId));
+                    req.onsuccess = () => res();
+                    req.onerror = () => rej(req.error);
+                });
+            } catch { }
+
+            // Clear Cache API
+            if (typeof window !== "undefined" && "caches" in window) {
+                try {
+                    const cacheName = "cf-api-cache-sectioned";
+                    const cache = await caches.open(cacheName);
+                    await cache.delete(BACKEND_CONTEST_BY_ID(contestId));
+                } catch { }
+            }
+
+            // Now fetch fresh data from backend
             const p = await fetchProblemsForContest(contestId, true);
             setContestProblemsMap((mp) => ({ ...mp, [contestId]: p || [] }));
         } catch (e) {
@@ -1039,7 +1108,11 @@ export default function Page(): React.ReactElement {
                             </div>
                         )}
 
-                        {errorContests && <div className="p-4 text-red-600 dark:text-red-400">{errorContests}</div>}
+                        {errorContests && (
+                            <div className={`p-4 ${errorContests.startsWith('✅') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {errorContests}
+                            </div>
+                        )}
 
                         {!loadingContests && !errorContests && (
                             <div className="min-w-[900px]">
