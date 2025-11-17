@@ -1010,21 +1010,21 @@ export default function Page(): React.ReactElement {
             }
 
             const result = await response.json();
-            
+
             if (result.success && result.contest) {
                 // Sort problems alphabetically by index
                 const sortedProblems = (result.contest.problems || []).sort(
                     (a: ProblemInfo, b: ProblemInfo) => (a.index || "").localeCompare(b.index || "")
                 );
-                
+
                 // Update cache and state
                 setContestProblemsMap((mp) => ({ ...mp, [contestId]: sortedProblems }));
-                
+
                 // Save to localStorage
                 try {
                     localStorage.setItem(key, JSON.stringify(sortedProblems));
                 } catch { }
-                
+
                 // Save to IndexedDB
                 try {
                     const db = await openDB();
