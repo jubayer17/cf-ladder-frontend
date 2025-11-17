@@ -13,6 +13,7 @@ import type { ContestInfo as CI } from "@/components/contests/ContestNameCell";
 const BACKEND_API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 const BACKEND_CONTESTS_BY_CATEGORY = `${BACKEND_API}/api/contests/by-category`;
 const BACKEND_CONTEST_BY_ID = (id: number) => `${BACKEND_API}/api/contests/${id}`;
+const BACKEND_REFRESH_CONTEST = (id: number) => `${BACKEND_API}/api/contests/${id}/refresh`;
 const BACKEND_SYNC_CONTESTS = `${BACKEND_API}/api/contests/sync`;
 
 console.log('🔗 Backend API URL:', BACKEND_API);
@@ -994,18 +995,56 @@ export default function Page(): React.ReactElement {
                     const cacheName = "cf-api-cache-sectioned";
                     const cache = await caches.open(cacheName);
                     await cache.delete(BACKEND_CONTEST_BY_ID(contestId));
+                    await cache.delete(BACKEND_REFRESH_CONTEST(contestId));
                 } catch { }
             }
 
-            // Now fetch fresh data from backend
-            const p = await fetchProblemsForContest(contestId, true);
-            setContestProblemsMap((mp) => ({ ...mp, [contestId]: p || [] }));
-        } catch (e) {
+            // Now fetch fresh data from backend refresh endpoint
+            const response = await fetch(BACKEND_REFRESH_CONTEST(contestId), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to refresh contest: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.success && result.contest) {
+                // Sort problems alphabetically by index
+                const sortedProblems = (result.contest.problems || []).sort(
+                    (a: ProblemInfo, b: ProblemInfo) => (a.index || "").localeCompare(b.index || "")
+                );
+                
+                // Update cache and state
+                setContestProblemsMap((mp) => ({ ...mp, [contestId]: sortedProblems }));
+                
+                // Save to localStorage
+                try {
+                    localStorage.setItem(key, JSON.stringify(sortedProblems));
+                } catch { }
+                
+                // Save to IndexedDB
+                try {
+                    const db = await openDB();
+                    const tx = db.transaction(STORE_PROBLEMS, "readwrite");
+                    await new Promise<void>((res, rej) => {
+                        const req = tx.objectStore(STORE_PROBLEMS).put(sortedProblems, String(contestId));
+                        req.onsuccess = () => res();
+                        req.onerror = () => rej(req.error);
+                    });
+                } catch { }
+            } else {
+                throw new Error(result.error || 'Unknown error');
+            }
+        } catch (e: any) {
             console.error("Per-contest refresh failed", contestId, e);
+            alert(`Failed to refresh contest: ${e.message}`);
         } finally {
             setPerContestLoading((m) => ({ ...m, [contestId]: false }));
         }
-    }, [fetchProblemsForContest]);
+    }, []);
 
     /* hydrate hard job for current section */
     useEffect(() => {
