@@ -59,8 +59,9 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
     }
   }, [problems, userSolvedSet, attemptedUnsolvedProblems]);
 
-  // Skeleton while loading
-  if (isLoading || loadingProblems || !ready) {
+  // Skeleton while initially loading user info OR while loading problems data
+  // This ensures all info appears together
+  if (isLoading || (handle && (loadingProblems || !ready))) {
     return (
       <div className="w-full max-w-7xl mx-auto p-6 shadow-md rounded-2xl mt-4 bg-[var(--card-bg)]">
         <div className="flex items-center justify-between gap-6">
@@ -187,6 +188,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
                 {ratingName}
               </span>
             </div>
+
 
             <div className="flex flex-wrap gap-4 mt-2 text-sm">
               <span
