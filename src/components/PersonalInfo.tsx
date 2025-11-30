@@ -8,6 +8,7 @@ import {
   getHandleParts,
 } from "../utils/ratingColors";
 import { useAppContext } from "@/context/AppContext";
+import { getVisitStreak } from "@/utils/streakTracker";
 
 const SuccessChart = dynamic(() => import("./SuccessChart"), {
   ssr: false,
@@ -42,13 +43,21 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
     attemptedUnsolvedProblems,
     loadingProblems,
     fetchProblems,
+    solvingStreak,
   } = useAppContext();
+
+  const [visitStreak, setVisitStreak] = useState(0);
 
   useEffect(() => {
     if (handle) {
       fetchProblems();
     }
   }, [handle, fetchProblems]);
+
+  useEffect(() => {
+    const streak = getVisitStreak();
+    setVisitStreak(streak.currentStreak);
+  }, []);
 
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -59,7 +68,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
 
   if (isLoading || (handle && (loadingProblems || !ready))) {
     return (
-      <div className="w-full max-w-7xl mx-auto p-6 shadow-md rounded-2xl mt-4 bg-[var(--card-bg)]">
+      <div className="w-full max-w-7xl mx-auto p-6 shadow-lg rounded-2xl mt-4 bg-[var(--card-bg)] border-2 border-border/40">
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
@@ -119,38 +128,36 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
     [handle, currentRating]
   );
 
-  const progress =
-    typeof currentRating === "number" &&
-      typeof maxRating === "number" &&
-      maxRating > 0
-      ? Math.max(0, Math.min(100, Math.round((currentRating / maxRating) * 100)))
-      : 0;
-
   const displayRating =
     typeof currentRating === "number" ? String(currentRating) : "—";
   const displayMax = typeof maxRating === "number" ? String(maxRating) : "—";
 
   return (
     <div
-      className="w-full max-w-7xl mx-auto p-6 shadow-md rounded-2xl mt-4"
-      style={{ backgroundColor: "var(--card-bg)", color: "var(--foreground)" }}
+      className="w-full max-w-7xl mx-auto p-6 shadow-md rounded-2xl mt-4 bg-[var(--card-bg)]"
+      style={{ color: "var(--foreground)" }}
     >
       <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
         <div className="flex flex-col sm:flex-row items-center gap-6">
-          <img
-            src={profileImage}
-            alt={`${handle} profile`}
-            className="w-24 h-24 sm:w-27 sm:h-27 rounded-full border-2 object-cover"
-            style={{ borderColor: "var(--blue-bg)" }}
-            loading="lazy"
-          />
-          <div className="flex flex-col gap-1">
+          <div className="relative">
+            <img
+              src={profileImage}
+              alt={`${handle} profile`}
+              className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 object-cover shadow-xl"
+              style={{ borderColor: color }}
+              loading="lazy"
+            />
+            <div className="absolute -bottom-1 -right-1 bg-orange-500 text-white rounded-full p-1.5 shadow-lg">
+              <i className="fa-solid fa-fire text-sm" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
             <div className="flex flex-col items-left gap-2">
               <a
                 href={`https://codeforces.com/profile/${handle}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-2xl font-semibold hover:opacity-80 transition-opacity cursor-pointer"
+                className="text-2xl font-bold hover:opacity-80 transition-opacity cursor-pointer flex items-center gap-2"
               >
                 {handleParts.map((p, i) => {
                   const isVar =
@@ -166,70 +173,78 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
                     </span>
                   );
                 })}
+                <i className="fa-solid fa-external-link text-sm opacity-70" />
               </a>
 
               <span
                 style={{
                   color,
-                  border: `1px solid ${color}`,
-                  padding: "0.18rem 0.45rem",
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  marginLeft: 1,
+                  border: `2px solid ${color}`,
+                  padding: "0.25rem 0.6rem",
+                  borderRadius: 10,
+                  fontWeight: 700,
                   width: "fit-content",
+                  boxShadow: `0 0 10px ${color}30`,
                 }}
               >
                 {ratingName}
               </span>
             </div>
 
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-3">
+              {/* Current Rating */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                <i className="fa-solid fa-trophy text-blue-500 text-lg" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Current</span>
+                  <span className="font-bold text-sm">{displayRating}</span>
+                </div>
+              </div>
 
-            <div className="flex flex-wrap gap-4 mt-2 text-sm">
-              <span
-                className="px-2 py-1 rounded"
-                style={{
-                  backgroundColor: "var(--blue-bg)",
-                  color: "var(--button-text)",
-                }}
-              >
-                Current Rating: {displayRating}
-              </span>
-              <span
-                className="px-2 py-1 rounded"
-                style={{
-                  backgroundColor: "var(--green-bg)",
-                  color: "var(--button-text)",
-                }}
-              >
-                Max Rating: {displayMax}
-              </span>
-              <span
-                className="px-2 py-1 rounded"
-                style={{
-                  backgroundColor: "var(--blue-bg)",
-                  color: "var(--button-text)",
-                }}
-              >
-                Solved: {totalSolved}
-              </span>
-              <span
-                className="px-2 py-1 rounded"
-                style={{
-                  backgroundColor: "var(--red-bg)",
-                  color: "var(--button-text)",
-                }}
-              >
-                Attempted Unsolved: {totalAttemptedUnsolved}
-              </span>
-              <span
-                className="px-2 py-1 rounded"
-                style={{
-                  backgroundColor: "#9CA3AF",
-                  color: "var(--button-text)",
-                }}
-              >
-                Not Tried: {totalNotTried}
-              </span>
+              {/* Max Rating */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                <i className="fa-solid fa-star text-green-500 text-lg" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Max</span>
+                  <span className="font-bold text-sm">{displayMax}</span>
+                </div>
+              </div>
+
+              {/* Solved */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                <i className="fa-solid fa-check-circle text-green-500 text-lg" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Solved</span>
+                  <span className="font-bold text-sm">{totalSolved}</span>
+                </div>
+              </div>
+
+              {/* Attempted */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <i className="fa-solid fa-exclamation-circle text-yellow-500 text-lg" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Attempted</span>
+                  <span className="font-bold text-sm">{totalAttemptedUnsolved}</span>
+                </div>
+              </div>
+
+              {/* Visit Streak */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                <i className="fa-solid fa-calendar-days text-orange-500 text-lg" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Visit</span>
+                  <span className="font-bold text-sm">{visitStreak} days</span>
+                </div>
+              </div>
+
+              {/* Solving Streak */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
+                <i className="fa-solid fa-fire text-red-500 text-lg" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Streak</span>
+                  <span className="font-bold text-sm">{solvingStreak || 0} days</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -242,24 +257,6 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
           />
         </div>
       </div>
-
-      {/* <div className="mt-4 flex items-center gap-3">
-        <div
-          className="progress-wrap"
-          aria-hidden
-          style={{ width: 200, height: 10, marginTop: 12 }}
-        >
-          <div
-            className="progress-inner"
-            style={{
-              width: `${progress}%`,
-              background: `linear-gradient(90deg, ${color}, ${color})`,
-              height: "100%",
-              borderRadius: 6,
-            }}
-          />
-        </div>
-      </div> */}
     </div>
   );
 };
