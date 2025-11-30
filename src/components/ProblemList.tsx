@@ -33,10 +33,20 @@ const ProblemList: React.FC<ProblemListProps> = ({
   const [localProblems, setLocalProblems] = useState<Problem[]>([]);
   const [hideSolved, setHideSolved] = useState<boolean>(false);
 
-  // contestId -> contestName map loaded once
+  useEffect(() => {
+    const saved = localStorage.getItem("cf_hide_solved");
+    if (saved !== null) {
+      setHideSolved(saved === "true");
+    }
+  }, []);
+
+  const handleHideSolvedChange = (v: boolean) => {
+    setHideSolved(v);
+    localStorage.setItem("cf_hide_solved", String(v));
+  };
+
   const [contestMap, setContestMap] = useState<Record<number, string> | null>(null);
 
-  // hydrate from cache if present
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
@@ -49,7 +59,6 @@ const ProblemList: React.FC<ProblemListProps> = ({
     }
   }, []);
 
-  // update cache when problems prop changes
   useEffect(() => {
     if (!problems?.length) {
       setLocalProblems([]);
@@ -63,7 +72,6 @@ const ProblemList: React.FC<ProblemListProps> = ({
     }
   }, [problems]);
 
-  // load full contest map once (async). This is the recommended approach:
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -73,7 +81,7 @@ const ProblemList: React.FC<ProblemListProps> = ({
         setContestMap(map);
       } catch {
         if (!mounted) return;
-        setContestMap(null); // treat as unavailable
+        setContestMap(null);
       }
     })();
     return () => {
@@ -84,7 +92,6 @@ const ProblemList: React.FC<ProblemListProps> = ({
   const source = localProblems.length ? localProblems : problems;
   const isLoading = source.length === 0;
 
-  // Reset to page 1 whenever selectedTag changes
   useEffect(() => {
     setPage(1);
     setPageInput("1");
@@ -117,7 +124,6 @@ const ProblemList: React.FC<ProblemListProps> = ({
     return list;
   }, [source, sortOption, hideSolved, userStatusMap, userSolvedSet]);
 
-  // precompute division map (contestId -> divisionLabel) from contestMap
   const contestDivisionMap = useMemo(() => {
     if (!contestMap) return null;
     const m: Record<number, string | null> = {};
@@ -148,7 +154,7 @@ const ProblemList: React.FC<ProblemListProps> = ({
           handlePageChange(1);
         }}
         hideSolved={hideSolved}
-        onHideSolvedChange={(v) => setHideSolved(v)}
+        onHideSolvedChange={handleHideSolvedChange}
       />
 
       {paged.map((p, idx) => {
@@ -157,12 +163,10 @@ const ProblemList: React.FC<ProblemListProps> = ({
           userStatusMap[key] ?? (userSolvedSet.has(key) ? "solved" : "unsolved");
         const problemNumber = (page - 1) * perPage + idx + 1;
 
-        // compute division (fast) from preloaded contestDivisionMap if available
         const contestId = p.contestId ?? undefined;
         const division =
           contestId && contestDivisionMap && contestDivisionMap[contestId] ? contestDivisionMap[contestId] : null;
 
-        // optionally pass full contest name too
         const contestName = contestId && contestMap ? contestMap[contestId] : undefined;
 
         return (

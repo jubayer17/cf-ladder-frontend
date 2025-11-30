@@ -27,7 +27,6 @@ const InputHandler: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Input field */}
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
           type="text"
@@ -56,7 +55,6 @@ const InputHandler: React.FC = () => {
         </button>
       </form>
 
-      {/* Loading skeleton */}
       {loadingUser && (
         <div className="flex items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 animate-pulse">
           <div className="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-600"></div>
@@ -71,7 +69,6 @@ const InputHandler: React.FC = () => {
         </div>
       )}
 
-      {/* Display user info with fade-in animation */}
       {userInfo && !loadingUser && (
         <div
           className="flex items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 animate-fade-in"
@@ -128,6 +125,7 @@ const InputHandler: React.FC = () => {
             </div>
           </div>
           <button
+            type="button"
             onClick={clearUser}
             className="ml-auto px-3 py-1 text-sm rounded bg-red-500 text-white hover:bg-red-600 transition"
           >

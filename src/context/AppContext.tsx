@@ -3,18 +3,15 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Problem } from "@/types";
 
-// Backend API URL
 const BACKEND_API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 const CF_API_BASE = "https://codeforces.com/api";
 
-// Cache expiration times (in milliseconds)
 const CACHE_EXPIRY = {
-    USER_INFO: 60 * 60 * 1000,      // 1 hour
-    PROBLEMS: 24 * 60 * 60 * 1000,   // 24 hours
-    SUBMISSIONS: 60 * 60 * 1000      // 1 hour
+    USER_INFO: 60 * 60 * 1000,
+    PROBLEMS: 24 * 60 * 60 * 1000,
+    SUBMISSIONS: 60 * 60 * 1000
 };
 
-// Cache helper functions
 const getCacheKey = (prefix: string, handle?: string) =>
     handle ? `${prefix}_${handle}` : prefix;
 
@@ -67,6 +64,7 @@ interface AppContextType {
     unsolvedProblems: Problem[];
     userSolvedSet: Set<string>;
     attemptedUnsolvedProblems: AttemptedProblem[];
+    dailySolveCounts: Record<string, number>;
     loadingProblems: boolean;
     loadingUser: boolean;
     errorProblems: string | null;
@@ -93,26 +91,18 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [handle, setHandle] = useState<string | null>(null);
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
     const [problems, setProblems] = useState<Problem[]>([]);
+    const [dailySolveCounts, setDailySolveCounts] = useState<Record<string, number>>({});
+
     const [userSolvedSet, setUserSolvedSet] = useState<Set<string>>(new Set());
     const [attemptedUnsolvedProblems, setAttemptedUnsolvedProblems] = useState<AttemptedProblem[]>([]);
     const [loadingProblems, setLoadingProblems] = useState(false);
     const [loadingUser, setLoadingUser] = useState(false);
     const [errorProblems, setErrorProblems] = useState<string | null>(null);
 
-    // Use ref to track current handle without causing re-renders or dependency issues
-    const handleRef = useRef(handle);
-
-    // Update ref whenever handle changes
-    useEffect(() => {
-        handleRef.current = handle;
-    }, [handle]);
-
-    // Fetch problemset from Codeforces with caching
     const fetchProblems = useCallback(async (forceRefresh = false) => {
         const problemsCacheKey = 'cf_problems';
         const problemsTimestampKey = 'cf_problems_timestamp';
 
-        // Check cache for problems list first
         if (!forceRefresh) {
             const cachedProblems = getCache<Problem[]>(problemsCacheKey);
             const timestamp = getCache<number>(problemsTimestampKey);
@@ -120,23 +110,23 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             if (cachedProblems && timestamp && isCacheValid(timestamp, CACHE_EXPIRY.PROBLEMS)) {
                 setProblems(cachedProblems);
 
-                // If we have a handle, load cached submissions
                 if (handle) {
                     const submissionsCacheKey = getCacheKey('cf_submissions', handle);
                     const cached = getCache<{
                         solved: string[];
                         attempted: AttemptedProblem[];
+                        dailyCounts: Record<string, number>;
                         timestamp: number;
                     }>(submissionsCacheKey);
 
                     if (cached && isCacheValid(cached.timestamp, CACHE_EXPIRY.SUBMISSIONS)) {
                         setUserSolvedSet(new Set(cached.solved));
                         setAttemptedUnsolvedProblems(cached.attempted);
+                        setDailySolveCounts(cached.dailyCounts || {});
                         return;
                     }
                 }
 
-                // If no handle, just return with problems
                 if (!handle) {
                     return;
                 }
@@ -147,43 +137,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setErrorProblems(null);
 
         try {
-            // Fetch problemset
-            const problemsetResponse = await fetch(`${CF_API_BASE}/problemset.problems`);
-            if (!problemsetResponse.ok) throw new Error("Failed to fetch problemset");
-            const problemsetData = await problemsetResponse.json();
-
-            if (problemsetData.status !== "OK") {
-                throw new Error("Codeforces API error");
-            }
-
-            const problemsRaw = problemsetData.result.problems || [];
-            const statisticsRaw = problemsetData.result.problemStatistics || [];
-
-            // Create a map of "contestId-index" -> solvedCount
-            const solvedCountMap = new Map<string, number>();
-            for (const stat of statisticsRaw) {
-                if (stat.contestId && stat.index) {
-                    solvedCountMap.set(`${stat.contestId}-${stat.index}`, stat.solvedCount);
-                }
-            }
-
-            const allProblems: Problem[] = problemsRaw.map((p: any) => ({
-                contestId: p.contestId,
-                index: p.index,
-                name: p.name,
-                type: p.type,
-                rating: p.rating,
-                tags: p.tags || [],
-                solvedCount: solvedCountMap.get(`${p.contestId}-${p.index}`)
-            }));
-
-            setProblems(allProblems);
-
-            // Cache problems
-            setCache(problemsCacheKey, allProblems);
-            setCache(problemsTimestampKey, Date.now());
-
-            // Only fetch user submissions if handle exists
             if (handle) {
                 const statusResponse = await fetch(`${CF_API_BASE}/user.status?handle=${handle}&from=1&count=100000`);
                 if (!statusResponse.ok) throw new Error("Failed to fetch user status");
@@ -196,6 +149,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 const submissions = statusData.result || [];
                 const solved = new Set<string>();
                 const attemptedUnsolved: Map<string, AttemptedProblem> = new Map();
+                const dailyCounts: Record<string, number> = {};
 
                 for (const sub of submissions) {
                     if (!sub.problem) continue;
@@ -205,7 +159,11 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                     if (sub.verdict === "OK") {
                         solved.add(key);
-                        attemptedUnsolved.delete(key); // Remove from attempted if solved
+                        attemptedUnsolved.delete(key);
+
+                        const date = new Date(submissionTime * 1000).toISOString().split('T')[0];
+                        dailyCounts[date] = (dailyCounts[date] || 0) + 1;
+
                     } else if (sub.verdict && sub.verdict !== "TESTING" && sub.verdict !== "COMPILATION_ERROR") {
                         const existing = attemptedUnsolved.get(key);
                         const lastTime = existing ? Math.max(existing.lastTime || 0, submissionTime) : submissionTime;
@@ -227,12 +185,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                 setUserSolvedSet(solved);
                 setAttemptedUnsolvedProblems(Array.from(attemptedUnsolved.values()));
+                setDailySolveCounts(dailyCounts);
 
-                // Cache submissions
                 const submissionsCacheKey = getCacheKey('cf_submissions', handle);
                 setCache(submissionsCacheKey, {
                     solved: Array.from(solved),
                     attempted: Array.from(attemptedUnsolved.values()),
+                    dailyCounts,
                     timestamp: Date.now()
                 });
             }
@@ -244,12 +203,10 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, [handle]);
 
-    // Fetch user info with caching
     const fetchUserInfo = useCallback(async (userHandle: string, forceRefresh = false) => {
         const cacheKey = getCacheKey('cf_userinfo', userHandle);
         const timestampKey = `${cacheKey}_timestamp`;
 
-        // Check cache first
         if (!forceRefresh) {
             const cached = getCache<UserInfo>(cacheKey);
             const timestamp = getCache<number>(timestampKey);
@@ -282,7 +239,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
             setUserInfo(userInfo);
 
-            // Cache the user info
             setCache(cacheKey, userInfo);
             setCache(timestampKey, Date.now());
         } catch (error: any) {
@@ -293,7 +249,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, []);
 
-    // Set handle and fetch data
     const setHandleAndFetch = useCallback(async (newHandle: string) => {
         if (!newHandle.trim()) return;
 
@@ -302,22 +257,20 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         await Promise.all([
             fetchUserInfo(newHandle),
-            // fetchProblems will be called via useEffect when handle changes
         ]);
     }, [fetchUserInfo]);
 
-    // Clear user data but keep problems for browsing
     const clearUser = useCallback(() => {
-        // Use ref to get current handle value without adding it as dependency
-        const currentHandle = handleRef.current;
+        const currentHandle = handle;
+        console.log("clearUser called. Current handle:", currentHandle);
 
         setHandle(null);
         setUserInfo(null);
         setUserSolvedSet(new Set());
         setAttemptedUnsolvedProblems([]);
+        setDailySolveCounts({});
         localStorage.removeItem("cf_handle");
 
-        // Also clear cached user data to prevent restoration
         if (currentHandle) {
             const userInfoKey = getCacheKey('cf_userinfo', currentHandle);
             const userInfoTimestampKey = `${userInfoKey}_timestamp`;
@@ -327,9 +280,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             localStorage.removeItem(userInfoTimestampKey);
             localStorage.removeItem(submissionsKey);
         }
-
-        // Note: problems array is kept intact for browsing mode
-    }, []); // No dependencies needed since we use ref
+    }, [handle]);
 
     // Load handle from localStorage and problems on mount
     useEffect(() => {
@@ -343,14 +294,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, [fetchUserInfo, fetchProblems]);
 
-    // Fetch problems when handle changes
     useEffect(() => {
         if (handle) {
             void fetchProblems();
         }
     }, [handle, fetchProblems]);
 
-    // Compute tag counts from solved problems
     const tagCounts = useMemo(() => {
         const counts: Record<string, number> = {};
         for (const key of userSolvedSet) {
@@ -364,7 +313,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return counts;
     }, [userSolvedSet, problems]);
 
-    // Compute unsolved problems
     const unsolvedProblems = useMemo(() => {
         return problems.filter(p => !userSolvedSet.has(makeKey(p.contestId, p.index)));
     }, [problems, userSolvedSet]);
@@ -377,6 +325,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         unsolvedProblems,
         userSolvedSet,
         attemptedUnsolvedProblems,
+        dailySolveCounts,
         loadingProblems,
         loadingUser,
         errorProblems,

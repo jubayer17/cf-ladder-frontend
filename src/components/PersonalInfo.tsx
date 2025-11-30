@@ -44,7 +44,6 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
     fetchProblems,
   } = useAppContext();
 
-  // Force reload when handle changes
   useEffect(() => {
     if (handle) {
       fetchProblems();
@@ -53,14 +52,11 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
 
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    // Wait until problems + attempted data loaded
     if (problems?.length && (userSolvedSet || attemptedUnsolvedProblems)) {
       setReady(true);
     }
   }, [problems, userSolvedSet, attemptedUnsolvedProblems]);
 
-  // Skeleton while initially loading user info OR while loading problems data
-  // This ensures all info appears together
   if (isLoading || (handle && (loadingProblems || !ready))) {
     return (
       <div className="w-full max-w-7xl mx-auto p-6 shadow-md rounded-2xl mt-4 bg-[var(--card-bg)]">
@@ -86,13 +82,11 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
     );
   }
 
-  // Unique attempted-unsolved problem keys
   const attemptedKeys = useMemo(
     () => new Set((attemptedUnsolvedProblems || []).map((a) => a.key)),
     [attemptedUnsolvedProblems]
   );
 
-  // Count solved, attempted, and not tried
   const { totalSolved, totalAttemptedUnsolved, totalNotTried } = useMemo(() => {
     const solvedSet = userSolvedSet || new Set<string>();
     const attemptedCount = attemptedKeys.size;

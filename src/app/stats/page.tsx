@@ -3,11 +3,12 @@
 import React from "react";
 import ProblemRatings from "@/components/stats/problemRatings";
 import TagsDonut from "@/components/stats/TagsDonut";
+import Heatmap from "@/components/Heatmap";
 import { useAppContext } from "@/context/AppContext";
 
 /* --------------------- Final Stats Page --------------------- */
 export default function StatsPage(): React.ReactElement {
-    const { handle } = useAppContext();
+    const { handle, dailySolveCounts } = useAppContext();
 
     return (
         <div className="min-h-screen font-mono bg-[var(--background)] text-[var(--foreground)] transition-colors">
@@ -20,6 +21,9 @@ export default function StatsPage(): React.ReactElement {
 
                 {handle && (
                     <div className="flex flex-col gap-6">
+                        {/* Heatmap */}
+                        <Heatmap dailyCounts={dailySolveCounts} />
+
                         {/* ProblemRatings appears first */}
                         <ProblemRatings handle={handle} />
 
