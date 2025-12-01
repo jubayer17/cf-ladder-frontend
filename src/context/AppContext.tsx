@@ -51,6 +51,7 @@ interface AppContextType {
     attemptedCountInProblems: number;
     notTriedCount: number;
     solvingStreak: number;
+    dailySolveCounts: Record<string, number>;
 }
 
 // Contest definition
@@ -109,6 +110,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [attemptedUnsolvedProblems, setAttemptedUnsolvedProblems] =
         useState<AttemptInfo[]>([]);
     const [solvingStreak, setSolvingStreak] = useState(0);
+    const [dailySolveCounts, setDailySolveCounts] = useState<Record<string, number>>({});
     const [loadingUser, setLoadingUser] = useState(false);
 
     const fetchProblemsPromiseRef = useRef<Promise<void> | null>(null);
@@ -247,7 +249,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     dailyCounts[date] = (dailyCounts[date] || 0) + 1;
                 }
 
-                if (!attempted[key])
+                if (!attempted[key]) {
+                    const isGym = contestId >= 10000;
                     attempted[key] = {
                         key,
                         contestId,
@@ -255,8 +258,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         name: p.name,
                         tags: p.tags || [],
                         attempts: 0,
-                        link: `https://codeforces.com/contest/${contestId}/problem/${idx}`,
+                        lastVerdict: s.verdict,
+                        link: isGym
+                            ? `https://codeforces.com/gym/${contestId}/problem/${idx}`
+                            : `https://codeforces.com/contest/${contestId}/problem/${idx}`,
                     };
+                }
                 attempted[key].attempts++;
             }
 
@@ -289,6 +296,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 }
             }
             setSolvingStreak(streak);
+            setDailySolveCounts(dailyCounts);
 
             setUserSolvedSet(newSolved);
             setAttemptedUnsolvedProblems(attemptedUnsolved);
@@ -312,6 +320,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setUserSolvedSet(new Set());
         setAttemptedUnsolvedProblems([]);
         setSolvingStreak(0);
+        setDailySolveCounts({});
         localStorage.removeItem("cf_user_handle_v1");
     };
 
@@ -373,6 +382,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 attemptedCountInProblems,
                 notTriedCount,
                 solvingStreak,
+                dailySolveCounts,
             }}
         >
             {children}

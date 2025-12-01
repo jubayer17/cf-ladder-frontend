@@ -2,9 +2,10 @@
 
 import React from "react";
 import { useAppContext } from "../../context/AppContext";
+import { RefreshCw } from "lucide-react";
 
 export default function UnsolvedPage() {
-    const { attemptedUnsolvedProblems } = useAppContext();
+    const { attemptedUnsolvedProblems, fetchAndMergeUserData, handle, loadingUser } = useAppContext();
 
     if (!attemptedUnsolvedProblems) {
         return (
@@ -16,11 +17,25 @@ export default function UnsolvedPage() {
 
     const validProblems = attemptedUnsolvedProblems.filter(p => p.link);
 
+    const handleRefresh = async () => {
+        if (handle) {
+            await fetchAndMergeUserData(handle);
+        }
+    };
+
     if (validProblems.length === 0) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
                 <h1 className="text-2xl font-semibold mb-3">🎉 All problems solved!</h1>
                 <p className="text-sm">No unsolved problems found. Keep grinding 🔥</p>
+                <button
+                    onClick={handleRefresh}
+                    disabled={loadingUser || !handle}
+                    className="mt-4 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                    <RefreshCw className={`w-4 h-4 ${loadingUser ? "animate-spin" : ""}`} />
+                    Refresh List
+                </button>
             </div>
         );
     }
@@ -30,12 +45,17 @@ export default function UnsolvedPage() {
             <div className="max-w-7xl mx-auto px-6 py-10">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-2xl font-bold">All Unsolved Problems</h1>
-                    <button
-                        onClick={() => document.documentElement.classList.toggle("dark")}
-                        className="px-3 py-2 text-sm rounded-md bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition"
-                    >
-                        Toggle Theme
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleRefresh}
+                            disabled={loadingUser || !handle}
+                            className="flex items-center gap-2 px-3 py-2 text-sm rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            title="Refresh unsolved problems"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${loadingUser ? "animate-spin" : ""}`} />
+                            <span className="hidden sm:inline">Refresh</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-3">
