@@ -237,14 +237,7 @@ const PersonalInfo: React.FC<PersonalInfoProps> = ({
                 </div>
               </div>
 
-              {/* Solving Streak */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
-                <i className="fa-solid fa-fire text-red-500 text-lg" />
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Streak</span>
-                  <span className="font-bold text-sm">{solvingStreak || 0} days</span>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>

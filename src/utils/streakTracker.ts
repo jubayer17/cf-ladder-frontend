@@ -8,6 +8,11 @@ interface StreakData {
 const STREAK_KEY = 'cf-ladder-visit-streak';
 
 export const updateVisitStreak = (): StreakData => {
+    // Check if running in browser
+    if (typeof window === 'undefined') {
+        return { lastVisit: '', currentStreak: 0, longestStreak: 0 };
+    }
+
     const today = new Date().toISOString().split('T')[0];
 
     const stored = localStorage.getItem(STREAK_KEY);
@@ -44,6 +49,11 @@ export const updateVisitStreak = (): StreakData => {
 };
 
 export const getVisitStreak = (): StreakData => {
+    // Check if running in browser
+    if (typeof window === 'undefined') {
+        return { lastVisit: '', currentStreak: 0, longestStreak: 0 };
+    }
+
     const stored = localStorage.getItem(STREAK_KEY);
     return stored
         ? JSON.parse(stored)
@@ -51,5 +61,10 @@ export const getVisitStreak = (): StreakData => {
 };
 
 export const resetVisitStreak = (): void => {
+    // Check if running in browser
+    if (typeof window === 'undefined') {
+        return;
+    }
+
     localStorage.removeItem(STREAK_KEY);
 };
